@@ -144,8 +144,12 @@ public:
     }
 
     void onSetupAndRender(SetupAndRenderEvent &event) {
+        // Render/setup events can arrive during client teardown or before the
+        // client instance has finished initializing.
+        if (!SDK::clientInstance) return;
+
         auto player = SDK::clientInstance->getLocalPlayer();
-        if(!player) return;
+        if (!player) return;
 
         auto name = SDK::clientInstance->getScreenName();
 
@@ -174,8 +178,14 @@ public:
                 if(frameQueue == 0) {
                     recreate = false;
 
-                    SDK::clientInstance->getLevelRender()->getLevelRendererPlayer()->onDeviceLost();
-                    SDK::clientInstance->getMinecraftGame()->_onResumeWaitReloadActors();
+                    if (auto* levelRender = SDK::clientInstance->getLevelRender()) {
+                        if (auto* levelRendererPlayer = levelRender->getLevelRendererPlayer()) {
+                            levelRendererPlayer->onDeviceLost();
+                        }
+                    }
+                    if (auto* minecraftGame = SDK::clientInstance->getMinecraftGame()) {
+                        minecraftGame->_onResumeWaitReloadActors();
+                    }
                     //SwapchainHook::recreate = true;
                 }
                 return;
