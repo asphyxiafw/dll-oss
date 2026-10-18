@@ -1,8 +1,9 @@
 #include "SignatureAndOffsetManager.hpp"
 
 #include <Utils/Memory/Memory.hpp>
-#include <thread>
+#include <algorithm>
 #include <atomic>
+#include <thread>
 
 SignatureAndOffsetManager Mgr;
 
@@ -38,23 +39,65 @@ int SignatureAndOffsetManager::getOffset(unsigned int hash) const {
     return it != offsets.end() ? it->second : 0; // Default to 0 if not found
 }
 
+std::size_t SignatureAndOffsetManager::getSignatureCount() const {
+    return sigs.size();
+}
+
+std::size_t SignatureAndOffsetManager::getResolvedSignatureCount() const {
+    return static_cast<std::size_t>(std::count_if(
+        sigs.begin(), sigs.end(),
+        [](const auto& entry) { return entry.second.address != 0; }));
+}
+
+std::vector<std::string> SignatureAndOffsetManager::getUnresolvedSignatureNames() const {
+    std::vector<std::string> missing;
+    for (const auto& [hash, signature] : sigs) {
+        (void)hash;
+        if (signature.address == 0) {
+            missing.push_back(signature.name);
+        }
+    }
+    std::ranges::sort(missing);
+    return missing;
+}
+
 void SignatureAndOffsetManager::clear() {
     sigs.clear();
     offsets.clear();
 }
 
 void SignatureAndOffsetManager::scanAllSignatures() {
-    const unsigned int numThreads = std::thread::hardware_concurrency();
+    // Take stable pointers before starting workers. The map is not mutated while
+    // scanning, and each worker writes to a different SignatureData::address.
+    std::vector<SignatureData*> entries;
+    entries.reserve(sigs.size());
+    for (auto& entry : sigs) {
+        entries.push_back(&entry.second);
+    }
+
+    if (entries.empty()) {
+        return;
+    }
+
+    // hardware_concurrency() is permitted to return 0. Clamp the worker count
+    // to [1, number of signatures] so the scan always runs and avoids excess threads.
+    const unsigned int availableThreads = std::max(1u, std::thread::hardware_concurrency());
+    const unsigned int numThreads = static_cast<unsigned int>(
+        std::min<std::size_t>(availableThreads, entries.size()));
+
     std::vector<std::thread> threads;
-    std::atomic<size_t> index{0};
+    threads.reserve(numThreads);
+    std::atomic<std::size_t> index{0};
 
-    auto worker = [this, &index]() {
+    auto worker = [&entries, &index]() {
         while (true) {
-            size_t i = index.fetch_add(1, std::memory_order_relaxed);
-            if (i >= sigs.size()) break;  // No more work
+            const std::size_t i = index.fetch_add(1, std::memory_order_relaxed);
+            if (i >= entries.size()) {
+                break;
+            }
 
-            auto& sigPair = *(std::next(sigs.begin(), i));
-            sigPair.second.address = Memory::findSig(sigPair.second.signature, sigPair.second.name);
+            auto* signature = entries[i];
+            signature->address = Memory::findSig(signature->signature, signature->name);
         }
     };
 
@@ -62,7 +105,7 @@ void SignatureAndOffsetManager::scanAllSignatures() {
         threads.emplace_back(worker);
     }
 
-    for (auto& t : threads) {
-        t.join();
+    for (auto& thread : threads) {
+        thread.join();
     }
 }
