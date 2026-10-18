@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include "../Utils/Utils.hpp"
 
 #define DEPRECATE_SIG(name) \
@@ -46,6 +48,12 @@ public:
     [[nodiscard]] int getOffset(unsigned int hash) const;
 
     void scanAllSignatures();
+
+    // Read-only diagnostics for compatibility reports. An unresolved signature
+    // is reported, not automatically treated as fatal: some features may be optional.
+    [[nodiscard]] std::size_t getSignatureCount() const;
+    [[nodiscard]] std::size_t getResolvedSignatureCount() const;
+    [[nodiscard]] std::vector<std::string> getUnresolvedSignatureNames() const;
 
     void clear();
 
