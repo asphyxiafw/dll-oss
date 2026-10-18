@@ -13,8 +13,11 @@ void Hook::enableHook() {
 }
 
 bool Hook::autoHook(void *callbackPtr, void **funcOriginal) {
-    if(address == 0) return false;
-    return this->manualHook((void *) address, callbackPtr, funcOriginal);
+    if (address == 0) {
+        Logger::warn("Skipped hook {} because its target signature did not resolve.", name);
+        return false;
+    }
+    return this->manualHook(reinterpret_cast<void*>(address), callbackPtr, funcOriginal);
 }
 
 bool Hook::manualHook(void *hookAddr, void *callbackPtr, void **funcOriginal) {
