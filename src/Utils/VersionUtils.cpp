@@ -1,5 +1,7 @@
 #include "VersionUtils.hpp"
 
+#include <algorithm>
+
 #include <Client/Client.hpp>
 #include <Utils/Memory/Game/Offset/OffsetInit.hpp>
 #include <Utils/Memory/Game/Sig/SigInit.hpp>
