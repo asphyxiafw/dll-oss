@@ -29,11 +29,8 @@ TexturePtr* TextureGroup_getTextureHook::TextureGroup_getTextureCallback(
         ~RecursionGuard() { flag = false; }
     };
 
-    TexturePtr* retTexture = nullptr;
-    {
-        RecursionGuard guard(inCallback);
-        retTexture = funcOriginal(_this, result, location, forceReload, a5, a6, a7);
-    }
+    RecursionGuard guard(inCallback);
+    TexturePtr* retTexture = funcOriginal(_this, result, location, forceReload, a5, a6, a7);
 
     // Some callers may request a texture without a resource key. Preserve the
     // game's result but don't hand invalid data to mod listeners.
@@ -41,6 +38,9 @@ TexturePtr* TextureGroup_getTextureHook::TextureGroup_getTextureCallback(
 
     auto* textureData = retTexture->clientTexture.get();
     auto event = nes::make_holder<GetTextureEvent>(location, textureData);
+    // Keep the recursion guard active while listeners run as well: a listener
+    // may request another texture, which should call the original without
+    // recursively broadcasting GetTextureEvent.
     eventMgr.trigger(event);
 
     return retTexture;
