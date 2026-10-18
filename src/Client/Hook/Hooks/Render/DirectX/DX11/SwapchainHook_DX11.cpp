@@ -148,6 +148,11 @@ void SwapchainHook::_DX11Render()
         ImGui::NewFrame();
     }
 
+    ImGui::GetBackgroundDrawList()->AddText(
+        ImVec2(20.0f, 20.0f),
+        IM_COL32(255, 255, 255, 255),
+        "Native overlay test");
+
     ImGui::Begin("t", nullptr,
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground |
