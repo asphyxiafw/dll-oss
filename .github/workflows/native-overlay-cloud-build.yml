@@ -1,0 +1,31 @@
+name: Native overlay cloud build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["automation/native-overlay-cloud-build"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure with MSVC
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Release DLL
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Upload DLL and debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: Native-Overlay-Flarial-DLL
+          if-no-files-found: error
+          path: |
+            build/Release/Flarial.dll
+            build/Release/Flarial.pdb
