@@ -162,10 +162,6 @@ public:
                     canUseKeys = true;
                 }
                 enableFrameQueue = false;
-            } else {
-                if(frameQueue > 0) {
-                    frameQueue--;
-                }
             }
         }
 
