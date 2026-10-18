@@ -39,7 +39,7 @@ TexturePtr* TextureGroup_getTextureHook::TextureGroup_getTextureCallback(
     // game's result but don't hand invalid data to mod listeners.
     if (retTexture == nullptr || location == nullptr) return retTexture;
 
-    auto* textureData = reinterpret_cast<BedrockTextureData*>(&retTexture->clientTexture);
+    auto* textureData = retTexture->clientTexture.get();
     auto event = nes::make_holder<GetTextureEvent>(location, textureData);
     eventMgr.trigger(event);
 
