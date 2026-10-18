@@ -75,6 +75,9 @@ public:
     }
 
     void Deactivate() {
+        // Always restore every temporary code patch before removing listeners or
+        // destroying this object, even if the world/client is already tearing down.
+        unpatch();
         unpatchComposeFullStack();
         Deafen(this, KeyEvent, &PackChanger::onKey);
         Deafen(this, SetupAndRenderEvent, &PackChanger::onSetupAndRender);
@@ -112,11 +115,10 @@ public:
     }
 
     void onAfterSettingsScreenOnExit(AfterSettingsScreenOnExitEvent &event) {
-        if(!SDK::clientInstance) return;
-        auto player = SDK::clientInstance->getLocalPlayer();
-        if(!player) return; // means were not in the world
-        forcePreGame = false;
+        // Restore the original instructions regardless of whether the player or
+        // client still exists at this point in the screen transition.
         unpatch();
+        forcePreGame = false;
     }
 
     void onPacksLoad(PacksLoadEvent &event) {
