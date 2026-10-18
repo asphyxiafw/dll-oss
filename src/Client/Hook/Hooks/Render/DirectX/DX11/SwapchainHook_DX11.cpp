@@ -148,6 +148,7 @@ void SwapchainHook::_DX11Render()
         ImGui::NewFrame();
     }
 
+
     ImGui::Begin("t", nullptr,
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground |

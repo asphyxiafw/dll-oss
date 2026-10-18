@@ -8,10 +8,26 @@
 
 class TextureGroup_getTextureHook : public Hook {
 private:
-    static TexturePtr *TextureGroup_getTextureCallback(TextureGroup* _this, TexturePtr* result, ResourceLocation* location, bool forceReload, void* a5, int a6, void* a7);
+    static TexturePtr *TextureGroup_getTextureCallback(
+        TextureGroup* _this,
+        TexturePtr* result,
+        ResourceLocation* location,
+        bool forceReload,
+        std::optional<uint32_t> optLoadOrder,
+        cg::TextureSetLayerType textureType
+    );
 
 public:
-    typedef TexturePtr *(__thiscall *original)(TextureGroup* _this, TexturePtr* result, ResourceLocation* location, bool forceReload, void* a5, int a6, void* a7);
+    // ABI mirrors TextureGroupBase::getTexture: the hidden return-storage
+    // pointer is followed by location, forceReload, optional load order, and layer type.
+    using original = TexturePtr *(__thiscall *)(
+        TextureGroup* _this,
+        TexturePtr* result,
+        ResourceLocation* location,
+        bool forceReload,
+        std::optional<uint32_t> optLoadOrder,
+        cg::TextureSetLayerType textureType
+    );
 
     static inline original funcOriginal = nullptr;
 

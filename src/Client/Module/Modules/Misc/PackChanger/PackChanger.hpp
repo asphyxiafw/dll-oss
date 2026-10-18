@@ -15,17 +15,42 @@ private:
 
     std::string last_tab = "";
 
-    static inline std::array<std::byte, 6> patch1Data;
-    static inline std::array<std::byte, 2> patch2Data;
+    std::array<std::byte, 6> patch1Data{};
+    std::array<std::byte, 2> patch2Data{};
+    uintptr_t composePatchAddress = 0;
+    uintptr_t settingsExitPatchAddress = 0;
+    bool composePatchCaptured = false;
+    bool settingsExitPatchCaptured = false;
+    bool composePatchApplied = false;
+    bool settingsExitPatchApplied = false;
 public:
     PackChanger() {
-        if(VersionUtils::checkAboveOrEqual(21,00)) {
-            static auto src = VersionUtils::checkAboveOrEqual(21,20) ? GET_SIG_ADDRESS("ResourcePackManager::_composeFullStack_Patch") : GET_SIG_ADDRESS("MinecraftGame::_onActiveResourcePacksChanged_Patch");
-            Memory::copyBytes((void*)src, patch1Data.data(), patch1Data.size());
+        // These signatures point into executable game memory. Never read or patch
+        // address 0 when a signature failed to resolve for the current game build.
+        if (VersionUtils::checkAboveOrEqual(21, 0)) {
+            composePatchAddress = VersionUtils::checkAboveOrEqual(21, 20)
+                ? GET_SIG_ADDRESS("ResourcePackManager::_composeFullStack_Patch")
+                : GET_SIG_ADDRESS("MinecraftGame::_onActiveResourcePacksChanged_Patch");
+
+            if (composePatchAddress == 0) {
+                Logger::warn("PackChanger disabled: resource-pack composition signature was not found.");
+                return;
+            }
+
+            Memory::copyBytes(reinterpret_cast<void*>(composePatchAddress),
+                              patch1Data.data(), patch1Data.size());
+            composePatchCaptured = true;
         }
 
-        static auto src1 = GET_SIG_ADDRESS("SettingsScreenOnExit_Patch");
-        Memory::copyBytes((void*)src1, patch2Data.data(), patch2Data.size());
+        settingsExitPatchAddress = GET_SIG_ADDRESS("SettingsScreenOnExit_Patch");
+        if (settingsExitPatchAddress == 0) {
+            Logger::warn("PackChanger disabled: settings-screen exit signature was not found.");
+            return;
+        }
+
+        Memory::copyBytes(reinterpret_cast<void*>(settingsExitPatchAddress),
+                          patch2Data.data(), patch2Data.size());
+        settingsExitPatchCaptured = true;
 
         Init();
     };
@@ -50,6 +75,9 @@ public:
     }
 
     void Deactivate() {
+        // Always restore every temporary code patch before removing listeners or
+        // destroying this object, even if the world/client is already tearing down.
+        unpatch();
         unpatchComposeFullStack();
         Deafen(this, KeyEvent, &PackChanger::onKey);
         Deafen(this, SetupAndRenderEvent, &PackChanger::onSetupAndRender);
@@ -87,11 +115,10 @@ public:
     }
 
     void onAfterSettingsScreenOnExit(AfterSettingsScreenOnExitEvent &event) {
-        if(!SDK::clientInstance) return;
-        auto player = SDK::clientInstance->getLocalPlayer();
-        if(!player) return; // means were not in the world
-        forcePreGame = false;
+        // Restore the original instructions regardless of whether the player or
+        // client still exists at this point in the screen transition.
         unpatch();
+        forcePreGame = false;
     }
 
     void onPacksLoad(PacksLoadEvent &event) {
@@ -119,8 +146,12 @@ public:
     }
 
     void onSetupAndRender(SetupAndRenderEvent &event) {
+        // Render/setup events can arrive during client teardown or before the
+        // client instance has finished initializing.
+        if (!SDK::clientInstance) return;
+
         auto player = SDK::clientInstance->getLocalPlayer();
-        if(!player) return;
+        if (!player) return;
 
         auto name = SDK::clientInstance->getScreenName();
 
@@ -133,10 +164,6 @@ public:
                     canUseKeys = true;
                 }
                 enableFrameQueue = false;
-            } else {
-                if(frameQueue > 0) {
-                    frameQueue--;
-                }
             }
         }
 
@@ -149,8 +176,14 @@ public:
                 if(frameQueue == 0) {
                     recreate = false;
 
-                    SDK::clientInstance->getLevelRender()->getLevelRendererPlayer()->onDeviceLost();
-                    SDK::clientInstance->getMinecraftGame()->_onResumeWaitReloadActors();
+                    if (auto* levelRender = SDK::clientInstance->getLevelRender()) {
+                        if (auto* levelRendererPlayer = levelRender->getLevelRendererPlayer()) {
+                            levelRendererPlayer->onDeviceLost();
+                        }
+                    }
+                    if (auto* minecraftGame = SDK::clientInstance->getMinecraftGame()) {
+                        minecraftGame->_onResumeWaitReloadActors();
+                    }
                     //SwapchainHook::recreate = true;
                 }
                 return;
@@ -177,30 +210,32 @@ public:
     }
 
     void patch() {
-        static auto dst1 = GET_SIG_ADDRESS("SettingsScreenOnExit_Patch");
-
-        Memory::nopBytes((void*)dst1, 2);
+        if (!settingsExitPatchCaptured || settingsExitPatchApplied) return;
+        Memory::nopBytes(reinterpret_cast<void*>(settingsExitPatchAddress), patch2Data.size());
+        settingsExitPatchApplied = true;
     }
 
     void unpatch() {
-        static auto dst1 = GET_SIG_ADDRESS("SettingsScreenOnExit_Patch");
-
-        Memory::patchBytes((void*)dst1, patch2Data.data(), patch2Data.size());
+        if (!settingsExitPatchCaptured || !settingsExitPatchApplied) return;
+        Memory::patchBytes(reinterpret_cast<void*>(settingsExitPatchAddress),
+                           patch2Data.data(), patch2Data.size());
+        settingsExitPatchApplied = false;
     }
 
     void patchComposeFullStack() {
-        if(!VersionUtils::checkAboveOrEqual(21,00)) return;
+        if (!VersionUtils::checkAboveOrEqual(21, 0) ||
+            !composePatchCaptured || composePatchApplied) return;
 
-        static auto dst = VersionUtils::checkAboveOrEqual(21,20) ? GET_SIG_ADDRESS("ResourcePackManager::_composeFullStack_Patch") : GET_SIG_ADDRESS("MinecraftGame::_onActiveResourcePacksChanged_Patch");
-
-        Memory::nopBytes((void*)dst, 6);
+        Memory::nopBytes(reinterpret_cast<void*>(composePatchAddress), patch1Data.size());
+        composePatchApplied = true;
     }
 
     void unpatchComposeFullStack() {
-        if(!VersionUtils::checkAboveOrEqual(21,00)) return;
+        if (!VersionUtils::checkAboveOrEqual(21, 0) ||
+            !composePatchCaptured || !composePatchApplied) return;
 
-        static auto dst = VersionUtils::checkAboveOrEqual(21,20) ? GET_SIG_ADDRESS("ResourcePackManager::_composeFullStack_Patch") : GET_SIG_ADDRESS("MinecraftGame::_onActiveResourcePacksChanged_Patch");
-
-        Memory::patchBytes((void*)dst, patch1Data.data(), patch1Data.size());
+        Memory::patchBytes(reinterpret_cast<void*>(composePatchAddress),
+                           patch1Data.data(), patch1Data.size());
+        composePatchApplied = false;
     }
 };

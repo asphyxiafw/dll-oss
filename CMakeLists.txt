@@ -149,7 +149,7 @@ FetchContent_Declare(
 FetchContent_Declare(
         fmt
         GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-        GIT_TAG        master
+        GIT_TAG        main
 )
 
 FetchContent_Declare(
@@ -178,13 +178,13 @@ FetchContent_Declare(
 
 FetchContent_Declare(
         discord-rpc
-        GIT_REPOSITORY https://github.com/EclipseMenu/discord-presence.git
-        GIT_TAG main
+        GIT_REPOSITORY https://github.com/kambala-decapitator/discord-presence.git
+        GIT_TAG e579a68b959b269fcabb0e1e84e601e36ed9fd37
 )
 
 FetchContent_Declare(
         rift
-        GIT_REPOSITORY https://github.com/EclipseMenu/rift.git
+        GIT_REPOSITORY https://git.eclipse.menu/EclipseMenu/RIFT
         GIT_TAG v2.0.2
 )
 

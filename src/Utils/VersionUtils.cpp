@@ -1,8 +1,11 @@
 #include "VersionUtils.hpp"
 
+#include <algorithm>
+
 #include <Client/Client.hpp>
 #include <Utils/Memory/Game/Offset/OffsetInit.hpp>
 #include <Utils/Memory/Game/Sig/SigInit.hpp>
+#include <Utils/Memory/Game/SignatureAndOffsetManager.hpp>
 #include <Utils/WinrtUtils.hpp>
 
 std::vector<std::pair<std::string, std::pair<std::function<void()>, std::function<void()>>>> VersionUtils::versions;
@@ -33,7 +36,6 @@ std::string VersionUtils::getFormattedVersion() {
         return "1.21.03";
     }
 
-    // Split version string by dots
     std::vector<std::string> parts;
     std::istringstream iss(version);
     std::string part;
@@ -42,15 +44,13 @@ std::string VersionUtils::getFormattedVersion() {
         parts.push_back(part);
     }
 
-    // Ensure at least major and minor parts exist
     if (parts.size() < 2) {
-        return version; // Invalid version format
+        return version;
     }
 
-    // Construct formatted version string
     std::string formattedVersion = parts[0] + "." + parts[1];
     if (parts.size() > 2) {
-        formattedVersion += "." + parts[2].substr(0, parts[2].size() - 1); // Take only the first character of the patch version
+        formattedVersion += "." + parts[2].substr(0, parts[2].size() - 1);
     }
 
     return formattedVersion;
@@ -58,13 +58,12 @@ std::string VersionUtils::getFormattedVersion() {
 
 void VersionUtils::initialize() {
     versions = {
-         {"1.26.3", {SigInit::init260, OffsetInit::init260}},
+        {"1.26.3", {SigInit::init260, OffsetInit::init260}},
         {"1.26.2", {SigInit::init260, OffsetInit::init260}},
         {"1.26.1", {SigInit::init260, OffsetInit::init260}},
         {"1.26.0", {SigInit::init260, OffsetInit::init260}},
         {"1.21.132", {SigInit::init21131, OffsetInit::init21130}},
         {"1.21.131", {SigInit::init21131, OffsetInit::init21130}},
-        // all it took?
         {"1.21.130", {SigInit::init21130, OffsetInit::init21130}},
         {"1.21.13", {SigInit::init21130, OffsetInit::init21130}},
         {"1.21.12", {SigInit::init21120, OffsetInit::init21120}},
@@ -79,8 +78,8 @@ void VersionUtils::initialize() {
         {"1.21.3", {SigInit::init2130, OffsetInit::init2130}},
         {"1.21.2", {SigInit::init2120, OffsetInit::init2120}},
         {"1.21.02", {SigInit::init2102, OffsetInit::init2100}},
-        {"1.21.1",  {SigInit::init2100, OffsetInit::init2100}},
-        {"1.21.03",  {SigInit::init2100, OffsetInit::init2100}},
+        {"1.21.1", {SigInit::init2100, OffsetInit::init2100}},
+        {"1.21.03", {SigInit::init2100, OffsetInit::init2100}},
         {"1.20.8", {SigInit::init2080, OffsetInit::init2080}},
         {"1.20.7", {SigInit::init2070, OffsetInit::init2070}},
         {"1.20.6", {SigInit::init2060, OffsetInit::init2060}},
@@ -106,35 +105,50 @@ bool VersionUtils::isSupported(const std::string& version) {
     }
     Logger::debug("unsupported {} vs supported {}", version, supported);
     return false;
-
 }
 
-
 void VersionUtils::addData() {
-    std::thread t1([&](){
-        for (const auto&[fst, snd] : versions) {
-            snd.first(); // Load signatures
-            if (fst == Client::version) {
-                break;
-            }
+    std::thread t1([&]() {
+        for (const auto& [version, loaders] : versions) {
+            loaders.first();
+            if (version == Client::version) break;
         }
     });
 
-    std::thread t2([&](){
-        for (const auto&[fst, snd] : versions) {
-            snd.second(); // Load offsets
-            if (fst == Client::version) {
-                break;
-            }
+    std::thread t2([&]() {
+        for (const auto& [version, loaders] : versions) {
+            loaders.second();
+            if (version == Client::version) break;
         }
     });
-
 
     t1.join();
     t2.join();
 
     Mgr.scanAllSignatures();
 
+    const auto total = Mgr.getSignatureCount();
+    const auto resolved = Mgr.getResolvedSignatureCount();
+    const auto missing = Mgr.getUnresolvedSignatureNames();
+
+    Logger::success("Signature scan for Minecraft {}: {}/{} resolved",
+                    Client::version, resolved, total);
+
+    if (!missing.empty()) {
+        Logger::warn("{} signatures were not found; some features may be unavailable",
+                     missing.size());
+
+        // Keep startup logs useful instead of dumping hundreds of entries.
+        constexpr std::size_t maxNamesToLog = 12;
+        const std::size_t countToLog = std::min(maxNamesToLog, missing.size());
+        for (std::size_t i = 0; i < countToLog; ++i) {
+            Logger::debug("Unresolved signature: {}", missing[i]);
+        }
+        if (missing.size() > countToLog) {
+            Logger::debug("... and {} more unresolved signatures",
+                          missing.size() - countToLog);
+        }
+    }
 }
 
 bool VersionUtils::checkAboveOrEqual(const int m, const int b) {

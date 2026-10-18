@@ -8,6 +8,13 @@
 void SigInit::init260() {
     Logger::custom(fg(fmt::color::gold), "Signatures", "Loading sigs for 1.26.X");
 
+    // The public source has no verified 1.26.x patch locations for PackChanger.
+    // Remove older-version patterns instead of letting them match unrelated bytes
+    // in a newer executable and patching arbitrary instructions.
+    DEPRECATE_SIG("ResourcePackManager::_composeFullStack_Patch");
+    DEPRECATE_SIG("MinecraftGame::_onActiveResourcePacksChanged_Patch");
+    DEPRECATE_SIG("SettingsScreenOnExit_Patch");
+
     DEPRECATE_SIG("Keyboard::feed");
     DEPRECATE_SIG("HurtColor");
     DEPRECATE_SIG("ItemPositionConst");

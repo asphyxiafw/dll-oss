@@ -1,0 +1,54 @@
+name: Native overlay cloud build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["automation/native-overlay-cloud-build"]
+
+permissions:
+  contents: read
+
+# Keep only the newest build for this branch. Each commit can otherwise leave
+# redundant Windows builds queued while the next source revision is ready.
+concurrency:
+  group: native-client-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure with MSVC
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Release DLL
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Write build manifest
+        shell: pwsh
+        run: |
+          @(
+            "Artifact: experimental native Bedrock client DLL"
+            "Source commit: $env:GITHUB_SHA"
+            "Branch: $env:GITHUB_REF_NAME"
+            "Workflow run: $env:GITHUB_RUN_ID"
+            "Built on: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+            ""
+            "Build status: Release compilation succeeded."
+            "Runtime status: NOT VERIFIED in a live Minecraft Bedrock process."
+            "Do not assume injection, current-version compatibility, menu input, or pack switching works solely from this build."
+            "The DLL is based on the public Flarial codebase and is not an independent engine."
+          ) | Set-Content -Encoding utf8 build/Release/build-info.txt
+
+      - name: Upload DLL, debug symbols, and build manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: Native-Overlay-Flarial-DLL
+          if-no-files-found: error
+          path: |
+            build/Release/Flarial.dll
+            build/Release/Flarial.pdb
+            build/Release/build-info.txt
