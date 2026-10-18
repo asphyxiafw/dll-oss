@@ -31,7 +31,7 @@ TexturePtr* TextureGroup_getTextureHook::TextureGroup_getTextureCallback(
     };
 
     RecursionGuard guard(inCallback);
-    TexturePtr* retTexture = funcOriginal(_this, result, location, forceReload, a5, a6, a7);
+    TexturePtr* retTexture = funcOriginal(_this, result, location, forceReload, optLoadOrder, textureType);
 
     // Some callers may request a texture without a resource key. Preserve the
     // game's result but don't hand invalid data to mod listeners.
