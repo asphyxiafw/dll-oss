@@ -27,7 +27,23 @@ jobs:
       - name: Build Release DLL
         run: cmake --build build --config Release --parallel 2
 
-      - name: Upload DLL and debug symbols
+      - name: Write build manifest
+        shell: pwsh
+        run: |
+          @(
+            "Artifact: experimental native Bedrock client DLL"
+            "Source commit: $env:GITHUB_SHA"
+            "Branch: $env:GITHUB_REF_NAME"
+            "Workflow run: $env:GITHUB_RUN_ID"
+            "Built on: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')"
+            ""
+            "Build status: Release compilation succeeded."
+            "Runtime status: NOT VERIFIED in a live Minecraft Bedrock process."
+            "Do not assume injection, current-version compatibility, menu input, or pack switching works solely from this build."
+            "The DLL is based on the public Flarial codebase and is not an independent engine."
+          ) | Set-Content -Encoding utf8 build/Release/build-info.txt
+
+      - name: Upload DLL, debug symbols, and build manifest
         uses: actions/upload-artifact@v4
         with:
           name: Native-Overlay-Flarial-DLL
@@ -35,3 +51,4 @@ jobs:
           path: |
             build/Release/Flarial.dll
             build/Release/Flarial.pdb
+            build/Release/build-info.txt
