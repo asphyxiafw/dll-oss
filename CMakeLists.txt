@@ -178,8 +178,8 @@ FetchContent_Declare(
 
 FetchContent_Declare(
         discord-rpc
-        GIT_REPOSITORY https://github.com/EclipseMenu/discord-presence.git
-        GIT_TAG main
+        GIT_REPOSITORY https://github.com/kambala-decapitator/discord-presence.git
+        GIT_TAG e579a68b959b269fcabb0e1e84e601e36ed9fd37
 )
 
 FetchContent_Declare(
