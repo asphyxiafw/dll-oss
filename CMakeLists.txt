@@ -184,7 +184,7 @@ FetchContent_Declare(
 
 FetchContent_Declare(
         rift
-        GIT_REPOSITORY https://github.com/EclipseMenu/rift.git
+        GIT_REPOSITORY https://git.eclipse.menu/EclipseMenu/RIFT
         GIT_TAG v2.0.2
 )
 
