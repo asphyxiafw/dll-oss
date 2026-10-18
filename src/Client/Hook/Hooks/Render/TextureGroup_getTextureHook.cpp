@@ -12,7 +12,8 @@ void TextureGroup_getTextureHook::enableHook() {
 
 TexturePtr* TextureGroup_getTextureHook::TextureGroup_getTextureCallback(
     TextureGroup* _this, TexturePtr* result, ResourceLocation* location,
-    bool forceReload, void* a5, int a6, void* a7) {
+    bool forceReload, std::optional<uint32_t> optLoadOrder,
+    cg::TextureSetLayerType textureType) {
     // The hidden return-storage pointer is required by this MSVC x64 ABI.
     if (result == nullptr || funcOriginal == nullptr) return nullptr;
 
@@ -20,7 +21,7 @@ TexturePtr* TextureGroup_getTextureHook::TextureGroup_getTextureCallback(
     // emits GetTextureEvent, so listeners cannot recursively trigger themselves.
     static thread_local bool inCallback = false;
     if (inCallback) {
-        return funcOriginal(_this, result, location, forceReload, a5, a6, a7);
+        return funcOriginal(_this, result, location, forceReload, optLoadOrder, textureType);
     }
 
     struct RecursionGuard {
