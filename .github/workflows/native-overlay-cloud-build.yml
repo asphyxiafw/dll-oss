@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# Keep only the newest build for this branch. Each commit can otherwise leave
+# redundant Windows builds queued while the next source revision is ready.
+concurrency:
+  group: native-client-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-2022
